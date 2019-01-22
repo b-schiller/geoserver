@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+
+<beans >
+
+    <bean class="org.geoserver.platform.ModuleStatusImpl">
+        <constructor-arg index="0" value="sec-cognito" />
+        <constructor-arg index="1" value="GeoServer Cognito Security" />
+    </bean>
+
+    <!-- Enables Cognito auth provider -->
+    <bean id="cognitoFilterProvider"
+          class="org.geoserver.security.cognito.CognitoAuthenticationProvider" />
+
+    <!-- GeoServer UI for Cognito auth config -->
+    <bean id="cognitoPanelInfo"
+          class="org.geoserver.web.security.cognito.CognitoAuthFilterPanelInfo">
+        <property name="id" value="security.cognitoAuthFilter" />
+        <property name="shortTitleKey" value="CognitoAuthFilterPanel.short" />
+        <property name="titleKey" value="CognitoAuthFilterPanel.title" />
+        <property name="descriptionKey" value="CognitoAuthFilterPanel.description" />
+    </bean>
+
+</beans>
