@@ -1,18 +1,6 @@
-/*
- *    GeoTools - The Open Source Java GIS Toolkit
- *    http://geotools.org
- *
- *    (C) 2002-2011, Open Source Geospatial Foundation (OSGeo)
- *
- *    This library is free software; you can redistribute it and/or
- *    modify it under the terms of the GNU Lesser General Public
- *    License as published by the Free Software Foundation;
- *    version 2.1 of the License.
- *
- *    This library is distributed in the hope that it will be useful,
- *    but WITHOUT ANY WARRANTY; without even the implied warranty of
- *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *    Lesser General Public License for more details.
+/* (c) 2019 Open Source Geospatial Foundation - all rights reserved
+ * This code is licensed under the GPL 2.0 license, available at the root
+ * application directory.
  */
 package org.geoserver.wcs2_0.util;
 
@@ -83,9 +71,13 @@ public class EnvelopeAxesLabelsMapper {
     private String getAxisLabel(CoordinateSystemAxis axis) {
         // some default axis have weird abbreviations (greek letters), handle them separately
         String label = axis.getAbbreviation();
-        if (label.equals(DefaultCoordinateSystemAxis.LONGITUDE.getAbbreviation())) {
+        // in EPSG 9.6 axis label can be also be Long and Lon
+        if (label.equals(DefaultCoordinateSystemAxis.LONGITUDE.getAbbreviation())
+                || label.equals("Lon")
+                || label.equals("Long")) {
             return "Long";
-        } else if (label.equals(DefaultCoordinateSystemAxis.LATITUDE.getAbbreviation())) {
+        } else if (label.equals(DefaultCoordinateSystemAxis.LATITUDE.getAbbreviation())
+                || label.equals("Lat")) {
             return "Lat";
         } else {
 

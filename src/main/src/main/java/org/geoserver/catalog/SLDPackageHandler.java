@@ -1,10 +1,13 @@
-/* This code is licensed under the GPL 2.0 license, available at the root
+/* (c) 2019 Open Source Geospatial Foundation - all rights reserved
+ * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
 package org.geoserver.catalog;
 
 import com.google.common.io.Files;
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
@@ -83,18 +86,17 @@ public class SLDPackageHandler extends StyleHandler {
 
         org.geoserver.util.IOUtils.decompress((InputStream) input, myTempDir);
 
-        File[] files =
-                myTempDir.listFiles(
-                        new FilenameFilter() {
-                            public boolean accept(File dir, String name) {
-                                return name.toLowerCase().endsWith(".sld");
-                            }
-                        });
+        File[] files = myTempDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".sld"));
 
-        if (files.length != 1) {
+        if (files == null || files.length != 1) {
             throw new IOException("No SLD file");
         }
 
         return files[0];
+    }
+
+    @Override
+    public URL getSpecification(Version version) throws MalformedURLException {
+        return sldHandler.getSpecification(version);
     }
 }

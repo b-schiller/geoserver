@@ -1,6 +1,5 @@
 /* (c) 2014 - 2015 Open Source Geospatial Foundation - all rights reserved
- * Copyright (C) 2007-2008-2009 GeoSolutions S.A.S.
- *  http://www.geo-solutions.it
+ * (c) 2007-2008-2009 GeoSolutions S.A.S., http://www.geo-solutions.it
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
@@ -168,6 +167,7 @@ public class ClassifierController extends BaseSLDServiceController {
                     boolean continuous,
             @RequestParam(value = "bbox", required = false) ReferencedEnvelope bbox,
             @RequestParam(value = "stddevs", required = false) Double stddevs,
+            @RequestParam(value = "env", required = false) String env,
             final HttpServletResponse response)
             throws Exception {
         LayerInfo layerInfo = catalog.getLayerByName(layerName);
@@ -193,7 +193,11 @@ public class ClassifierController extends BaseSLDServiceController {
                 this.getColorRamp(
                         customClasses, customColors, startColor, endColor, midColor, colors);
         final List<Rule> rules;
+        if (env != null) {
+            RestEnvVariableCallback.setOptions(env);
+        }
         try {
+
             ResourceInfo obj = layerInfo.getResource();
             /* Check if it's feature type or coverage */
             if (obj instanceof FeatureTypeInfo) {
@@ -244,6 +248,12 @@ public class ClassifierController extends BaseSLDServiceController {
             }
         } catch (IllegalArgumentException e) {
             throw new RestException(e.getMessage(), HttpStatus.BAD_REQUEST, e);
+        }
+
+        if (rules == null || rules.isEmpty()) {
+            throw new RestException(
+                    "Could not generate any rule, there is likely no data matching the request (layer is empty, of filtered down to no matching features/pixels)",
+                    HttpStatus.NOT_FOUND);
         }
 
         if (fullSLD) {
@@ -342,7 +352,7 @@ public class ClassifierController extends BaseSLDServiceController {
     }
 
     /**
-     * @param Rule object
+     * @param obj Rule object
      * @return a string with json rule representation
      */
     private JSONObject jsonRule(Object obj) {

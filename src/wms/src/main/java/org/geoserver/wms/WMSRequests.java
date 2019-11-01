@@ -24,7 +24,6 @@ import org.geoserver.ows.util.ResponseUtils;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.wms.map.GetMapKvpRequestReader;
 import org.geotools.map.Layer;
-import org.geotools.map.MapLayer;
 import org.geotools.styling.Style;
 import org.locationtech.jts.geom.Envelope;
 import org.springframework.util.StringUtils;
@@ -44,7 +43,7 @@ public class WMSRequests {
      *
      * <p>The tile cache location is determined from {@link GeoServer#getTileCache()}. If the above
      * method returns null this method falls back to the behaviour of {@link
-     * #getGetMapUrl(WMSMapContent, MapLayer, Envelope, String[])}.
+     * #getGetMapUrl(WMSMapContent, Layer, Envelope, String[])}.
      *
      * <p>If the <tt>layer</tt> argument is <code>null</code>, the request is made including all
      * layers in the <tt>mapContexT</tt>.
@@ -187,7 +186,7 @@ public class WMSRequests {
      * Encodes the url of a GetLegendGraphic request.
      *
      * @param req The wms request.
-     * @param published The Map layer, may not be <code>null</code>.
+     * @param layers The layers, may not be <code>null</code>.
      * @param kvp Additional or overidding kvp parameters, may be <code>null</code>
      * @return The full url for a getMap request.
      */
@@ -618,7 +617,6 @@ public class WMSRequests {
      * Encodes a list of format option maps to be used as the value in a kvp.
      *
      * @param formatOptions The list of formation option maps.
-     * @param sb StringBuffer to append to.
      * @return A string of the form
      *     'key1.1:value1.1,value1.2;key1.2:value1.1;...[,key2.1:value2.1,value2.2;key2.2:value2.1]',
      *     or the empty string if the formatOptions list is empty.

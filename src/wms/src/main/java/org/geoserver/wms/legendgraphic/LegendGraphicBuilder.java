@@ -114,8 +114,11 @@ public abstract class LegendGraphicBuilder {
         }
 
         if (Boolean.TRUE.equals(
-                request.getLegendOption(
-                        GetLegendGraphicRequest.COUNT_MATCHED_KEY, Boolean.class))) {
+                        request.getLegendOption(
+                                GetLegendGraphicRequest.COUNT_MATCHED_KEY, Boolean.class))
+                || Boolean.TRUE.equals(
+                        request.getLegendOption(
+                                GetLegendGraphicRequest.HIDE_EMPTY_RULES, Boolean.class))) {
             countProcessor = new FeatureCountProcessor(request);
         }
         layers = request.getLegends();
@@ -171,14 +174,11 @@ public abstract class LegendGraphicBuilder {
      * Calculates a global rescaling factor for all the symbols to be drawn in the given rules. This
      * is to be sure all symbols are drawn inside the given w x h box.
      *
-     * @param width horizontal constraint
-     * @param height vertical constraint
      * @param featureType FeatureType to be used for size extraction in expressions (used to create
      *     a sample if feature is null)
      * @param feature Feature to be used for size extraction in expressions (if null a sample
      *     Feature will be created from featureType)
      * @param rules set of rules to scan for symbols
-     * @param minimumSymbolSize lower constraint for the symbols size
      */
     protected double[] calcSymbolSize(
             double defaultMaxSize,
@@ -194,9 +194,7 @@ public abstract class LegendGraphicBuilder {
         for (int i = 0; i < ruleCount; i++) {
             Feature sample = getSampleFeatureForRule(featureType, feature, rules[i]);
             MetaBufferEstimator estimator = new MetaBufferEstimator(sample);
-            final Symbolizer[] symbolizers = rules[i].getSymbolizers();
-            for (int sIdx = 0; sIdx < symbolizers.length; sIdx++) {
-                final Symbolizer symbolizer = symbolizers[sIdx];
+            for (Symbolizer symbolizer : rules[i].symbolizers()) {
                 if (symbolizer instanceof PointSymbolizer || symbolizer instanceof LineSymbolizer) {
                     double size = getSymbolizerSize(estimator, symbolizer, defaultMaxSize);
                     // a line symbolizer is depicted as a line of the requested size, so don't go
@@ -216,7 +214,6 @@ public abstract class LegendGraphicBuilder {
     /**
      * Gets a numeric value for the given PointSymbolizer
      *
-     * @param feature sample to be used for evals
      * @param symbolizer symbolizer
      * @param defaultSize size to use is none can be taken from the symbolizer
      */
@@ -244,14 +241,12 @@ public abstract class LegendGraphicBuilder {
      */
     protected Feature getSampleFeatureForRule(
             FeatureType featureType, Feature sample, final Rule rule) {
-        Symbolizer[] symbolizers = rule.getSymbolizers();
         // if we don't have a sample as input, we need to create a sampleFeature
         // looking at the requested symbolizers (we chose the one with the max
         // dimensionality and create a congruent sample)
         if (sample == null) {
             int dimensionality = 1;
-            for (int sIdx = 0; sIdx < symbolizers.length; sIdx++) {
-                final Symbolizer symbolizer = symbolizers[sIdx];
+            for (Symbolizer symbolizer : rule.symbolizers()) {
                 if (LineSymbolizer.class.isAssignableFrom(symbolizer.getClass())) {
                     dimensionality = 2;
                 }

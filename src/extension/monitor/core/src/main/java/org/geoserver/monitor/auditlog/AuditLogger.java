@@ -5,7 +5,10 @@
  */
 package org.geoserver.monitor.auditlog;
 
-import static org.apache.commons.io.filefilter.FileFilterUtils.*;
+import static org.apache.commons.io.filefilter.FileFilterUtils.and;
+import static org.apache.commons.io.filefilter.FileFilterUtils.makeFileOnly;
+import static org.apache.commons.io.filefilter.FileFilterUtils.prefixFileFilter;
+import static org.apache.commons.io.filefilter.FileFilterUtils.suffixFileFilter;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
@@ -20,6 +23,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Objects;
 import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -58,7 +62,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
 
     MonitorConfig config;
 
-    RequestDumper dumper;
+    volatile RequestDumper dumper;
 
     int rollLimit;
 
@@ -76,8 +80,8 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
         templateConfig.setTemplateLoader(new AuditTemplateLoader(loader));
     }
 
-    void initDumper() throws IOException {
-        if (getProperty("enabled", Boolean.class, false)) {
+    synchronized void initDumper() throws IOException {
+        if (this.dumper == null && getProperty("enabled", Boolean.class, false)) {
             // prepare the config
             rollLimit = getProperty("roll_limit", Integer.class, DEFAULT_ROLLING_LIMIT);
             path = System.getProperty("GEOSERVER_AUDIT_PATH");
@@ -155,10 +159,10 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                     // reloaded. We also rework if the dumper died for some reason (e.g., improper
                     // config, invalid templates)
                     if (newLimit != rollLimit
-                            || newPath != path
-                            || newHeaderTemplate != headerTemplate
-                            || newContentTemplate != contentTemplate
-                            || newFooterTemplate != footerTemplate
+                            || !Objects.equals(newPath, path)
+                            || !Objects.equals(newHeaderTemplate, headerTemplate)
+                            || !Objects.equals(newContentTemplate, contentTemplate)
+                            || !Objects.equals(newFooterTemplate, footerTemplate)
                             || !dumper.isAlive()) {
                         // config changed, close the current dumper and create a new one
                         closeDumper(dumper);
@@ -344,7 +348,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                     final String[] files =
                             path.list(
                                     makeFileOnly(
-                                            andFileFilter(
+                                            and(
                                                     prefixFileFilter("geoserver_audit_"),
                                                     suffixFileFilter(".log"))));
                     if (files != null && files.length > 0) {
@@ -433,6 +437,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
          * Stops the cleaner thread. Calling this method is recommended in all long running
          * applications with custom class loaders (e.g., web applications).
          */
+        @SuppressWarnings("deprecation")
         public void exit() {
             if (queue != null && isAlive()) {
                 // try to stop it gracefully

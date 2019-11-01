@@ -5,7 +5,7 @@
  */
 package org.geoserver.jdbcconfig;
 
-import static org.easymock.classextension.EasyMock.*;
+import static org.easymock.EasyMock.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +25,7 @@ import org.geoserver.GeoServerConfigurationLock;
 import org.geoserver.catalog.impl.CatalogImpl;
 import org.geoserver.config.util.XStreamPersisterFactory;
 import org.geoserver.config.util.XStreamPersisterInitializer;
+import org.geoserver.jdbcconfig.catalog.JDBCCatalogFacade;
 import org.geoserver.jdbcconfig.internal.ConfigDatabase;
 import org.geoserver.jdbcconfig.internal.DbMappings;
 import org.geoserver.jdbcconfig.internal.JDBCConfigProperties;
@@ -222,14 +223,38 @@ public class JDBCConfigTestSupport {
 
     private ConfigDatabase configDb;
 
+    private JDBCCatalogFacade facade;
+
     public JDBCConfigTestSupport(DBConfig dbConfig) {
         this.dbConfig = dbConfig;
     }
 
-    public void setUp() throws Exception {
+    public void setUpWithoutAppContext() throws Exception {
         ConfigDatabase.LOGGER.setLevel(Level.FINER);
 
         resourceLoader = new GeoServerResourceLoader(createTempDir());
+
+        dataSource = dbConfig.dataSource();
+
+        dropDb();
+        initDb();
+
+        // use a context to initialize the ConfigDatabase as this will enable
+        // transaction management making the tests much faster (and correcter)
+        AnnotationConfigApplicationContext context =
+                new AnnotationConfigApplicationContext(Config.class);
+        // use the dataSource we just created
+        context.getBean(Config.class).real = dataSource;
+        configDb = context.getBean(ConfigDatabase.class);
+
+        catalog = new CatalogImpl();
+        catalog.setFacade(facade = new JDBCCatalogFacade(configDb));
+        configDb.setCatalog(catalog);
+        configDb.initDb(null);
+    }
+
+    public void setUp() throws Exception {
+        ConfigDatabase.LOGGER.setLevel(Level.FINER);
 
         // just to avoid hundreds of warnings in the logs about extension lookups with no app
         // context set
@@ -248,26 +273,7 @@ public class JDBCConfigTestSupport {
                 new JDBCConfigXStreamPersisterInitializer(),
                 XStreamPersisterInitializer.class);
 
-        //        final File testDbDir = new File("target", "jdbcconfig");
-        //        FileUtils.deleteDirectory(testDbDir);
-        //        testDbDir.mkdirs();
-
-        dataSource = dbConfig.dataSource();
-
-        dropDb();
-        initDb();
-
-        // use a context to initialize the ConfigDatabase as this will enable
-        // transaction management making the tests much faster (and correcter)
-        AnnotationConfigApplicationContext context =
-                new AnnotationConfigApplicationContext(Config.class);
-        // use the dataSource we just created
-        context.getBean(Config.class).real = dataSource;
-        configDb = context.getBean(ConfigDatabase.class);
-
-        catalog = new CatalogImpl();
-        configDb.setCatalog(catalog);
-        configDb.initDb(null);
+        setUpWithoutAppContext();
     }
 
     protected void configureAppContext(WebApplicationContext appContext) {
@@ -379,6 +385,10 @@ public class JDBCConfigTestSupport {
 
     public CatalogImpl getCatalog() {
         return catalog;
+    }
+
+    public JDBCCatalogFacade getFacade() {
+        return facade;
     }
 
     @Configuration

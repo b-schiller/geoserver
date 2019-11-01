@@ -25,7 +25,6 @@ import com.thoughtworks.xstream.converters.reflection.ReflectionProvider;
 import com.thoughtworks.xstream.converters.reflection.SortableFieldKeySorter;
 import com.thoughtworks.xstream.converters.reflection.SunUnsafeReflectionProvider;
 import com.thoughtworks.xstream.core.ClassLoaderReference;
-import com.thoughtworks.xstream.io.ExtendedHierarchicalStreamWriterHelper;
 import com.thoughtworks.xstream.io.HierarchicalStreamDriver;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
@@ -57,7 +56,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.collections.MultiHashMap;
+import org.apache.commons.collections.map.MultiValueMap;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.mapped.MappedXMLStreamWriter;
 import org.codehaus.jettison.util.FastStack;
@@ -224,27 +223,12 @@ public class XStreamPersister {
         protected void postEncodeLayerGroup(
                 LayerGroupInfo ls, HierarchicalStreamWriter writer, MarshallingContext context) {}
 
-        /**
-         * @deprecated use {@link #postEncodeReference(Object, String, String,
-         *     HierarchicalStreamWriter, MarshallingContext)}
-         */
-        protected void postEncodeReference(
-                Object obj,
-                String ref,
-                HierarchicalStreamWriter writer,
-                MarshallingContext context) {}
-
         protected void postEncodeReference(
                 Object obj,
                 String ref,
                 String prefix,
                 HierarchicalStreamWriter writer,
-                MarshallingContext context) {
-            if (prefix == null) {
-                // call other method for backward compatability
-                postEncodeReference(obj, ref, writer, context);
-            }
-        }
+                MarshallingContext context) {}
 
         protected void postEncodeWMSStore(
                 WMSStoreInfo store, HierarchicalStreamWriter writer, MarshallingContext context) {}
@@ -390,7 +374,7 @@ public class XStreamPersister {
         xs.omitField(impl(DefaultCatalogFacade.class), "layerGroups");
 
         xs.registerLocalConverter(
-                DefaultCatalogFacade.class, "stores", new StoreMultiHashMapConverter());
+                DefaultCatalogFacade.class, "stores", new StoreMultiValueMapConverter());
         xs.registerLocalConverter(
                 DefaultCatalogFacade.class, "namespaces", new SpaceMapConverter("namespace"));
         xs.registerLocalConverter(
@@ -929,7 +913,7 @@ public class XStreamPersister {
                         reader.moveDown();
                     }
 
-                    value = readItem(reader, context, map);
+                    value = readBareItem(reader, context, map);
 
                     if (old) {
                         reader.moveUp();
@@ -943,7 +927,7 @@ public class XStreamPersister {
         }
 
         @Override
-        protected Object readItem(
+        protected Object readBareItem(
                 HierarchicalStreamReader reader, UnmarshallingContext context, Object current) {
             return reader.getValue();
         }
@@ -1048,11 +1032,11 @@ public class XStreamPersister {
             Object value;
             try {
                 reader.moveDown();
-                key = readItem(reader, context, map);
+                key = readBareItem(reader, context, map);
                 reader.moveUp();
 
                 reader.moveDown();
-                value = readItem(reader, context, map);
+                value = readBareItem(reader, context, map);
             } catch (CannotResolveClassException e) {
                 LOGGER.log(
                         Level.WARNING,
@@ -1117,7 +1101,7 @@ public class XStreamPersister {
                     if (v != null) {
                         writer.startNode("entry");
                         writer.addAttribute("key", key.toString());
-                        writeItem(v, context, writer);
+                        writeCompleteItem(v, context, writer);
                         writer.endNode();
                     }
                 }
@@ -1133,7 +1117,7 @@ public class XStreamPersister {
                 // in this case we also support complex objects
                 while (reader.hasMoreChildren()) {
                     reader.moveDown();
-                    value = readItem(reader, context, map);
+                    value = readBareItem(reader, context, map);
                     reader.moveUp();
                 }
                 reader.moveUp();
@@ -1271,7 +1255,7 @@ public class XStreamPersister {
         }
 
         @Override
-        protected void writeItem(
+        protected void writeCompleteItem(
                 Object item, MarshallingContext context, HierarchicalStreamWriter writer) {
             ClassAliasingMapper cam =
                     (ClassAliasingMapper) mapper().lookupMapperOfType(ClassAliasingMapper.class);
@@ -1327,7 +1311,7 @@ public class XStreamPersister {
         }
 
         @Override
-        protected Object readItem(
+        protected Object readBareItem(
                 HierarchicalStreamReader reader, UnmarshallingContext context, Object current) {
             Class theClass = clazz;
             if (subclasses != null) {
@@ -1347,10 +1331,10 @@ public class XStreamPersister {
         }
 
         @Override
-        protected void writeItem(
+        protected void writeCompleteItem(
                 Object item, MarshallingContext context, HierarchicalStreamWriter writer) {
 
-            super.writeItem(unwrapProxies(item), context, writer);
+            super.writeCompleteItem(unwrapProxies(item), context, writer);
         }
     }
 
@@ -1547,7 +1531,7 @@ public class XStreamPersister {
             }
 
             GridGeometry2D gg = new GridGeometry2D(gridRange, gridToCRS, crs);
-            return serializationMethodInvoker.callReadResolve(gg);
+            return serializationMembers.callReadResolve(gg);
         }
 
         int[] toIntArray(String s) {
@@ -1828,14 +1812,14 @@ public class XStreamPersister {
     }
 
     /** Converter for multi hash maps containing coverage stores and data stores. */
-    static class StoreMultiHashMapConverter implements Converter {
+    static class StoreMultiValueMapConverter implements Converter {
         public boolean canConvert(Class type) {
-            return MultiHashMap.class.equals(type);
+            return MultiValueMap.class.equals(type);
         }
 
         public void marshal(
                 Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
-            MultiHashMap map = (MultiHashMap) source;
+            MultiValueMap map = (MultiValueMap) source;
             for (Object v : map.values()) {
                 if (v instanceof DataStoreInfo) {
                     writer.startNode("dataStore");
@@ -1851,7 +1835,7 @@ public class XStreamPersister {
         }
 
         public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
-            MultiHashMap map = new MultiHashMap();
+            MultiValueMap map = new MultiValueMap();
 
             while (reader.hasMoreChildren()) {
                 reader.moveDown();
@@ -2421,15 +2405,15 @@ public class XStreamPersister {
         }
 
         @Override
-        protected Object readItem(
+        protected Object readBareItem(
                 HierarchicalStreamReader reader, UnmarshallingContext context, Object current) {
             return context.convertAnother(current, Keyword.class);
         }
 
         @Override
-        protected void writeItem(
+        protected void writeCompleteItem(
                 Object item, MarshallingContext context, HierarchicalStreamWriter writer) {
-            ExtendedHierarchicalStreamWriterHelper.startNode(writer, "string", Keyword.class);
+            writer.startNode("string");
             context.convertAnother(item);
             writer.endNode();
         }

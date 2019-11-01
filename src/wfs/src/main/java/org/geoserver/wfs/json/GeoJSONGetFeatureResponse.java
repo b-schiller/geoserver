@@ -18,6 +18,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.sf.json.JSONException;
 import org.geoserver.config.GeoServer;
+import org.geoserver.data.util.TemporalUtils;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
 import org.geoserver.platform.GeoServerExtensions;
@@ -63,7 +64,9 @@ public class GeoJSONGetFeatureResponse extends WFSGetFeatureOutputFormat {
 
     /** capabilities output format string. */
     public String getCapabilitiesElementName() {
-        return JSONType.getJSONType(getOutputFormat()).toString();
+        return JSONType.getJSONType(
+                        getOutputFormats().isEmpty() ? null : getOutputFormats().iterator().next())
+                .toString();
     }
 
     /** Returns the mime type */
@@ -209,10 +212,16 @@ public class GeoJSONGetFeatureResponse extends WFSGetFeatureOutputFormat {
             // encode collection with complex features
             ComplexGeoJsonWriter complexWriter =
                     new ComplexGeoJsonWriter(jsonWriter) {
+
                         @Override
-                        protected void encodeFeature(Feature feature) {
-                            super.encodeFeature(feature);
-                            writeExtraFeatureProperties(feature, operation, jsonWriter);
+                        protected void writeExtraFeatureProperties(
+                                Feature feature, boolean topLevelFeature) {
+                            // the various links should be reported only for the top feature, not
+                            // for all nested ones
+                            if (topLevelFeature) {
+                                GeoJSONGetFeatureResponse.this.writeExtraFeatureProperties(
+                                        feature, operation, jsonWriter);
+                            }
                         }
                     };
             complexWriter.write(resultsList);
@@ -452,6 +461,11 @@ public class GeoJSONGetFeatureResponse extends WFSGetFeatureOutputFormat {
                                     jsonWriter.writeGeom((Geometry) value);
                                 }
                             }
+                        } else if (Date.class.isAssignableFrom(ad.getType().getBinding())
+                                && TemporalUtils.isDateTimeFormatEnabled()) {
+                            // Temporal types print handling
+                            jsonWriter.key(ad.getLocalName());
+                            jsonWriter.value(TemporalUtils.printDate((Date) value));
                         } else {
                             jsonWriter.key(ad.getLocalName());
                             jsonWriter.value(value);
@@ -559,5 +573,10 @@ public class GeoJSONGetFeatureResponse extends WFSGetFeatureOutputFormat {
     @Override
     public String getCharset(Operation operation) {
         return gs.getGlobal().getSettings().getCharset();
+    }
+
+    @Override
+    public String getAttachmentFileName(Object value, Operation operation) {
+        return super.getAttachmentFileName(value, operation);
     }
 }

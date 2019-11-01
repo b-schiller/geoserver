@@ -27,6 +27,7 @@ import net.opengis.wcs20.GetCapabilitiesType;
 import org.geoserver.ExtendedCapabilitiesProvider;
 import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.KeywordInfo;
+import org.geoserver.catalog.MetadataLinkInfo;
 import org.geoserver.config.ContactInfo;
 import org.geoserver.config.GeoServer;
 import org.geoserver.config.ResourceErrorHandling;
@@ -47,10 +48,10 @@ import org.geotools.xml.transform.TransformerBase;
 import org.geotools.xml.transform.Translator;
 import org.opengis.geometry.BoundingBox;
 import org.vfny.geoserver.global.CoverageInfoLabelComparator;
+import org.vfny.geoserver.util.ResponseUtils;
 import org.vfny.geoserver.wcs.WcsException;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
-import org.xml.sax.SAXException;
 import org.xml.sax.helpers.AttributesImpl;
 import org.xml.sax.helpers.NamespaceSupport;
 
@@ -110,8 +111,6 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
 
     private class WCS20GetCapabilitiesTranslator extends TranslatorSupport {
         /**
-         * DOCUMENT ME!
-         *
          * @uml.property name="request"
          * @uml.associationEnd multiplicity="(0 1)"
          */
@@ -121,21 +120,18 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
         private org.geoserver.ExtendedCapabilitiesProvider.Translator translator;
         private TranslatorHelper helper;
 
-        /**
-         * Creates a new WFSCapsTranslator object.
-         *
-         * @param handler DOCUMENT ME!
-         */
+        /** Creates a new WFSCapsTranslator object. */
         public WCS20GetCapabilitiesTranslator(ContentHandler handler) {
             super(handler, null, null);
             this.helper = new TranslatorHelper();
             this.extensions = GeoServerExtensions.extensions(WCSExtendedCapabilitiesProvider.class);
             // register namespaces provided by extended capabilities
             NamespaceSupport namespaces = getNamespaceSupport();
-            namespaces.declarePrefix(
-                    "wcscrs", "http://www.opengis.net/wcs/service-extension/crs/1.0");
+            namespaces.declarePrefix("wcs", "http://www.opengis.net/wcs/2.0");
             namespaces.declarePrefix(
                     "int", "http://www.opengis.net/WCS_service-extension_interpolation/1.0");
+
+            namespaces.declarePrefix("crs", "http://www.opengis.net/wcs/crs/1.0");
 
             for (WCSExtendedCapabilitiesProvider cp : extensions) {
                 cp.registerNamespaces(namespaces);
@@ -301,12 +297,13 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
             } else {
                 codes = wcs.getSRS();
             }
+            start("crs:CrsMetadata");
             for (String code : codes) {
                 if (!code.equals("WGS84(DD)")) {
-                    element("wcscrs:crsSupported", "http://www.opengis.net/def/crs/EPSG/0/" + code);
+                    element("crs:crsSupported", "http://www.opengis.net/def/crs/EPSG/0/" + code);
                 }
             }
-
+            end("crs:CrsMetadata");
             // add the supported interpolation methods
             element(
                     "int:interpolationSupported",
@@ -323,12 +320,7 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
             end("wcs:ServiceMetadata");
         }
 
-        /**
-         * Handles the service identification of the capabilities document.
-         *
-         * @param config The OGC service to transform.
-         * @throws SAXException For any errors.
-         */
+        /** Handles the service identification of the capabilities document. */
         private void handleServiceIdentification() {
             start("ows:ServiceIdentification");
 
@@ -419,12 +411,7 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
             end("ows:ServiceIdentification");
         }
 
-        /**
-         * Handles the service provider of the capabilities document.
-         *
-         * @param config The OGC service to transform.
-         * @throws SAXException For any errors.
-         */
+        /** Handles the service provider of the capabilities document. */
         private void handleServiceProvider() {
             start("ows:ServiceProvider");
             SettingsInfo settings = wcs.getGeoServer().getSettings();
@@ -446,9 +433,6 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
         /**
          * Handles the OperationMetadata portion of the document, printing out the operations and
          * where to bind to them.
-         *
-         * @param config The global wms.
-         * @throws SAXException For any problems.
          */
         private void handleOperationsMetadata() {
             start("ows:OperationsMetadata");
@@ -524,12 +508,7 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
             end("ows:Operation");
         }
 
-        /**
-         * DOCUMENT ME!
-         *
-         * @param kwords DOCUMENT ME!
-         * @throws SAXException DOCUMENT ME!
-         */
+        /** */
         private void handleKeywords(List<KeywordInfo> kwords) {
             if (kwords != null && !kwords.isEmpty()) {
                 start("ows:Keywords");
@@ -540,11 +519,7 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
             }
         }
 
-        /**
-         * Handles contacts.
-         *
-         * @param wcs the service.
-         */
+        /** Handles contacts. */
         private void handleContact() {
             final GeoServer gs = wcs.getGeoServer();
             start("ows:ServiceContact");
@@ -653,12 +628,16 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
 
         private void handleCoverageSummary(CoverageInfo cv) throws Exception {
             start("wcs:CoverageSummary");
+            elementIfNotEmpty("ows:Title", cv.getTitle());
+            elementIfNotEmpty("ows:Abstract", cv.getDescription());
+            handleKeywords(cv.getKeywords());
             String covId = NCNameResourceCodec.encode(cv);
             element("wcs:CoverageId", covId);
             element("wcs:CoverageSubtype", "RectifiedGridCoverage"); // TODO make this parametric
 
             handleWGS84BoundingBox(cv.getLatLonBoundingBox());
             handleBoundingBox(cv.boundingBox());
+            cv.getMetadataLinks().forEach(this::handleMetadataLink);
 
             end("wcs:CoverageSummary");
         }
@@ -699,6 +678,19 @@ public class WCS20GetCapabilitiesTransformer extends TransformerBase {
                             .append(boundingBox.getUpperCorner().getOrdinate(1))
                             .toString());
             end("ows:BoundingBox");
+        }
+
+        private void handleMetadataLink(MetadataLinkInfo mdl) {
+            if (isNotBlank(mdl.getContent())) {
+                String url = ResponseUtils.proxifyMetadataLink(mdl, request.getBaseUrl());
+                AttributesImpl attributes = new AttributesImpl();
+                if (isNotBlank(mdl.getAbout())) {
+                    attributes.addAttribute("", "about", "about", "", mdl.getAbout());
+                }
+                attributes.addAttribute("", "xlink:type", "xlink:type", "", "simple");
+                attributes.addAttribute("", "xlink:href", "xlink:href", "", url);
+                element("ows:Metadata", null, attributes);
+            }
         }
 
         private void handleLanguages() {

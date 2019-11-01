@@ -29,6 +29,7 @@ import org.geoserver.catalog.StoreInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.catalog.event.CatalogAddEvent;
 import org.geoserver.catalog.event.CatalogEvent;
+import org.geoserver.catalog.event.CatalogModifyEvent;
 import org.geoserver.catalog.event.CatalogPostModifyEvent;
 import org.geoserver.catalog.event.CatalogRemoveEvent;
 import org.geoserver.cluster.ConfigChangeEvent;
@@ -178,14 +179,32 @@ public abstract class HzSynchronizer extends GeoServerSynchronizer
         return ev;
     }
 
+    ConfigChangeEvent newChangeEvent(
+            Info subj,
+            Type type,
+            List<String> propNames,
+            List<Object> oldValues,
+            List<Object> newValues) {
+        ConfigChangeEvent event = newChangeEvent(subj, type);
+        event.setPropertyNames(propNames);
+        event.setOldValues(oldValues);
+        event.setNewValues(newValues);
+        return event;
+    }
+
     @Override
     public void handleAddEvent(CatalogAddEvent event) throws CatalogException {
         dispatch(newChangeEvent(event, Type.ADD));
     }
 
     @Override
-    public void handlePostModifyEvent(CatalogPostModifyEvent event) throws CatalogException {
+    public void handleModifyEvent(CatalogModifyEvent event) throws CatalogException {
         dispatch(newChangeEvent(event, Type.MODIFY));
+    }
+
+    @Override
+    public void handlePostModifyEvent(CatalogPostModifyEvent event) throws CatalogException {
+        dispatch(newChangeEvent(event, Type.POST_MODIFY));
     }
 
     @Override
@@ -203,12 +222,26 @@ public abstract class HzSynchronizer extends GeoServerSynchronizer
         if (propertyNames.size() == 1 && propertyNames.contains("updateSequence")) {
             return;
         }
-        dispatch(newChangeEvent(global, Type.MODIFY));
+        dispatch(newChangeEvent(global, Type.MODIFY, propertyNames, oldValues, newValues));
+    }
+
+    @Override
+    public void handlePostGlobalChange(GeoServerInfo global) {
+        dispatch(newChangeEvent(global, Type.POST_MODIFY));
+    }
+
+    @Override
+    public void handleServiceChange(
+            ServiceInfo service,
+            List<String> propertyNames,
+            List<Object> oldValues,
+            List<Object> newValues) {
+        dispatch(newChangeEvent(service, Type.MODIFY, propertyNames, oldValues, newValues));
     }
 
     @Override
     public void handlePostServiceChange(ServiceInfo service) {
-        dispatch(newChangeEvent(service, Type.MODIFY));
+        dispatch(newChangeEvent(service, Type.POST_MODIFY));
     }
 
     @Override
@@ -222,8 +255,21 @@ public abstract class HzSynchronizer extends GeoServerSynchronizer
     }
 
     @Override
+    public void handleSettingsModified(
+            SettingsInfo settings,
+            List<String> propertyNames,
+            List<Object> oldValues,
+            List<Object> newValues) {
+        // optimization for update sequence
+        if (propertyNames.size() == 1 && propertyNames.contains("updateSequence")) {
+            return;
+        }
+        dispatch(newChangeEvent(settings, Type.MODIFY, propertyNames, oldValues, newValues));
+    }
+
+    @Override
     public void handleSettingsPostModified(SettingsInfo settings) {
-        dispatch(newChangeEvent(settings, Type.MODIFY));
+        dispatch(newChangeEvent(settings, Type.POST_MODIFY));
     }
 
     @Override

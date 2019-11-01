@@ -38,6 +38,7 @@ import org.geoserver.web.data.store.panel.ParamPanel;
 import org.geoserver.web.data.store.panel.PasswordParamPanel;
 import org.geoserver.web.data.store.panel.TextAreaParamPanel;
 import org.geoserver.web.data.store.panel.TextParamPanel;
+import org.geoserver.web.util.EnumAdapterModel;
 import org.geoserver.web.util.MapModel;
 import org.geoserver.web.wicket.FileExistsValidator;
 import org.geotools.data.DataAccessFactory;
@@ -146,7 +147,7 @@ public class DefaultDataStoreEditPanel extends StoreEditPanel {
      *
      * @param paramMetadata
      */
-    private Panel getInputComponent(
+    protected Panel getInputComponent(
             final String componentId, final IModel paramsModel, final ParamInfo paramMetadata) {
 
         final GeoServerEnvironment gsEnvironment =
@@ -167,6 +168,9 @@ public class DefaultDataStoreEditPanel extends StoreEditPanel {
         } else if (options != null && options.size() > 0) {
 
             IModel<Serializable> valueModel = new MapModel(paramsModel, paramName);
+            if (binding.isEnum()) {
+                valueModel = new EnumAdapterModel(valueModel, binding);
+            }
             IModel<String> labelModel = new ResourceModel(paramLabel, paramLabel);
             parameterPanel =
                     new DropDownChoiceParamPanel(
@@ -270,12 +274,14 @@ public class DefaultDataStoreEditPanel extends StoreEditPanel {
 
     /**
      * Makes sure the file path for shapefiles do start with file:// otherwise stuff like
-     * /home/user/file.shp won't be recognized as valid...
+     * /home/user/file.shp won't be recognized as valid... <br>
+     * Added support for http:// and https:// protocols.
      *
      * @author aaime
      */
-    private final class URLModel extends MapModel {
-        private URLModel(IModel model, String expression) {
+    static final class URLModel extends MapModel {
+
+        URLModel(IModel model, String expression) {
             super(model, expression);
         }
 
@@ -284,7 +290,8 @@ public class DefaultDataStoreEditPanel extends StoreEditPanel {
             String file = (String) object;
             if (!file.startsWith("file://")
                     && !file.startsWith("file:")
-                    && !file.startsWith("http://")) file = "file://" + file;
+                    && !file.startsWith("http://")
+                    && !file.startsWith("https://")) file = "file://" + file;
             super.setObject(file);
         }
     }

@@ -1,6 +1,5 @@
 /* (c) 2014 Open Source Geospatial Foundation - all rights reserved
- * Copyright (C) 2007-2008-2009 GeoSolutions S.A.S.
- *  http://www.geo-solutions.it
+ * (c) 2007-2008-2009 GeoSolutions S.A.S., http://www.geo-solutions.it
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
@@ -39,6 +38,7 @@ import org.geotools.styling.Style;
 import org.geotools.styling.StyleBuilder;
 import org.geotools.styling.StyledLayerDescriptor;
 import org.geotools.styling.Symbolizer;
+import org.geotools.styling.visitor.DuplicatingStyleVisitor;
 import org.geotools.util.logging.Logging;
 import org.opengis.filter.FilterFactory2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,7 +115,8 @@ public class RasterizerController extends BaseSLDServiceController {
             @RequestParam(value = "midColor", required = false) String midColor,
             @RequestParam(value = "ramp", required = false) String ramp,
             @RequestParam(value = "cache", required = false, defaultValue = "600") long cachingTime,
-            final HttpServletResponse response) {
+            final HttpServletResponse response)
+            throws IOException {
         if (cachingTime > 0) {
             response.setHeader(
                     "cache-control",
@@ -149,7 +150,11 @@ public class RasterizerController extends BaseSLDServiceController {
                 StyleInfo defaultStyle = layerInfo.getDefaultStyle();
                 RasterSymbolizer rasterSymbolizer = getRasterSymbolizer(defaultStyle);
 
-                if (rasterSymbolizer == null) {
+                DuplicatingStyleVisitor cloner = new DuplicatingStyleVisitor();
+                rasterSymbolizer.accept(cloner);
+                RasterSymbolizer rasterSymbolizer1 = (RasterSymbolizer) cloner.getCopy();
+
+                if (rasterSymbolizer == null || rasterSymbolizer1 == null) {
                     throw new InvalidSymbolizer();
                 }
 
@@ -158,7 +163,7 @@ public class RasterizerController extends BaseSLDServiceController {
                     rasterized =
                             remapStyle(
                                     defaultStyle,
-                                    rasterSymbolizer,
+                                    rasterSymbolizer1,
                                     min,
                                     max,
                                     classes,
@@ -169,6 +174,7 @@ public class RasterizerController extends BaseSLDServiceController {
                                     startColor,
                                     endColor,
                                     midColor);
+
                 } catch (Exception e) {
                     throw new InvalidSymbolizer();
                 }
@@ -232,7 +238,7 @@ public class RasterizerController extends BaseSLDServiceController {
             final String[] labels = new String[classes + 1];
             final double[] quantities = new double[classes + 1];
 
-            ColorRamp colorRamp = null;
+            ColorRamp colorRamp;
             quantities[0] = min - DEFAULT_MIN_DECREMENT;
             if (colorMapType == ColorMap.TYPE_INTERVALS) {
                 max = max + DEFAULT_MIN_DECREMENT;
@@ -275,6 +281,8 @@ public class RasterizerController extends BaseSLDServiceController {
                         customRamp.setMid(Color.decode(midColor));
                     }
                     break;
+                default:
+                    throw new IllegalArgumentException("Unknown ramp type: " + ramp);
             }
             colorRamp.setNumClasses(classes);
 
@@ -297,7 +305,6 @@ public class RasterizerController extends BaseSLDServiceController {
         return style;
     }
 
-    /** @param defaultStyle */
     private RasterSymbolizer getRasterSymbolizer(StyleInfo sInfo) {
         RasterSymbolizer rasterSymbolizer = null;
 
@@ -305,7 +312,7 @@ public class RasterizerController extends BaseSLDServiceController {
             for (FeatureTypeStyle ftStyle :
                     sInfo.getStyle().featureTypeStyles().toArray(new FeatureTypeStyle[0])) {
                 for (Rule rule : ftStyle.rules().toArray(new Rule[0])) {
-                    for (Symbolizer sym : rule.getSymbolizers()) {
+                    for (Symbolizer sym : rule.symbolizers()) {
                         if (sym instanceof RasterSymbolizer) {
                             rasterSymbolizer = (RasterSymbolizer) sym;
                             break;
