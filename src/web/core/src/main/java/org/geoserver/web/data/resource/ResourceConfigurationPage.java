@@ -160,12 +160,7 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
         return (ResourceInfo) myResourceModel.getObject();
     }
 
-    /**
-     * Allows collaborating pages to update the resource info object
-     *
-     * @param info
-     * @param target
-     */
+    /** Allows collaborating pages to update the resource info object */
     public void updateResource(ResourceInfo info) {
         updateResource(info, null);
     }
@@ -174,7 +169,6 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
      * Allows collaborating pages to update the resource info object
      *
      * @param info the resource info to update
-     * @param target
      */
     public void updateResource(ResourceInfo info, final AjaxRequestTarget target) {
         myResourceModel.setObject(info);
@@ -197,6 +191,7 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
     protected void doSaveInternal() throws IOException {
         Catalog catalog = getCatalog();
         ResourceInfo resourceInfo = getResourceInfo();
+        validateByChildren(resourceInfo);
         if (isNew) {
             // updating grid if is a coverage
             if (resourceInfo instanceof CoverageInfo) {
@@ -245,5 +240,15 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
                 throw e;
             }
         }
+    }
+
+    private void validateByChildren(final ResourceInfo resourceInfo) {
+        if (resourceInfo == null || resourceInfo.getMetadata() == null) return;
+        visitChildren(
+                (component, visitor) -> {
+                    if (component instanceof MetadataMapValidator) {
+                        ((MetadataMapValidator) component).validate(resourceInfo.getMetadata());
+                    }
+                });
     }
 }

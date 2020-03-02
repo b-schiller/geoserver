@@ -216,10 +216,12 @@ public class DataStoreFileController extends AbstractStoreUploadController {
             throw new RestException("No files for datastore " + storeName, HttpStatus.NOT_FOUND);
         }
 
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                BufferedOutputStream bufferedOutputStream =
-                        new BufferedOutputStream(byteArrayOutputStream);
-                ZipOutputStream zipOutputStream = new ZipOutputStream(bufferedOutputStream)) {
+        try {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+            BufferedOutputStream bufferedOutputStream =
+                    new BufferedOutputStream(byteArrayOutputStream);
+            ZipOutputStream zipOutputStream = new ZipOutputStream(bufferedOutputStream);
 
             // packing files
             File[] files = directory.listFiles();
@@ -560,7 +562,6 @@ public class DataStoreFileController extends AbstractStoreUploadController {
      *     on server)
      * @param storeName The name of the store being added
      * @param format The store format.
-     * @throws IOException
      */
     protected List<Resource> doFileUpload(
             UploadMethod method,

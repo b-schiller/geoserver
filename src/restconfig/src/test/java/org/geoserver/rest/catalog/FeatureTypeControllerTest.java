@@ -133,12 +133,7 @@ public class FeatureTypeControllerTest extends CatalogRESTTestSupport {
                 "application/zip");
     }
 
-    /**
-     * Add a property data store with multiple feature types, but only configure the first.
-     *
-     * @param configureFeatureType
-     * @throws Exception
-     */
+    /** Add a property data store with multiple feature types, but only configure the first. */
     void addPropertyDataStoreOnlyConfigureFirst() throws Exception {
         ByteArrayOutputStream zbytes = new ByteArrayOutputStream();
         ZipOutputStream zout = new ZipOutputStream(zbytes);
@@ -304,7 +299,7 @@ public class FeatureTypeControllerTest extends CatalogRESTTestSupport {
 
         String dom = getAsString(BASEPATH + "/workspaces/gs/datastores/pds/featuretypes.xml");
 
-        System.out.println(dom);
+        // System.out.println(dom);
     }
 
     @Test
@@ -716,7 +711,7 @@ public class FeatureTypeControllerTest extends CatalogRESTTestSupport {
                 getAsString(
                         BASEPATH
                                 + "/workspaces/sf/datastores/sf/featuretypes/PrimitiveGeoFeature.json");
-        System.out.println(json);
+        // System.out.println(json);
         MockHttpServletResponse response =
                 putAsServletResponse(
                         BASEPATH + "/workspaces/sf/datastores/sf/featuretypes/PrimitiveGeoFeature",

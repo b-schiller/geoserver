@@ -385,10 +385,7 @@ public class GeofenceAccessManager
         }
     }
 
-    /**
-     * @param resource
-     * @param rule
-     */
+    /** */
     DataAccessLimits buildAccessLimits(ResourceInfo resource, AccessInfo rule) {
         // basic filter
         Filter readFilter = (rule.getGrant() == GrantType.ALLOW) ? Filter.INCLUDE : Filter.EXCLUDE;
@@ -508,12 +505,7 @@ public class GeofenceAccessManager
         return rasterFilter;
     }
 
-    /**
-     * Merges the two filters into one by AND
-     *
-     * @param filter
-     * @param areaFilter
-     */
+    /** Merges the two filters into one by AND */
     private Filter mergeFilter(Filter filter, Filter areaFilter) {
         if ((filter == null) || (filter == Filter.INCLUDE)) {
             return areaFilter;
@@ -524,12 +516,7 @@ public class GeofenceAccessManager
         }
     }
 
-    /**
-     * Builds the equivalent {@link PropertyName} list for the specified access mode
-     *
-     * @param attributes
-     * @param mode
-     */
+    /** Builds the equivalent {@link PropertyName} list for the specified access mode */
     private List<PropertyName> toPropertyNames(
             Set<LayerAttribute> attributes, PropertyAccessMode mode) {
         // handle simple case
@@ -837,7 +824,7 @@ public class GeofenceAccessManager
         String rawLayersParameter = (String) gsRequest.getRawKvp().get("LAYERS");
         if (rawLayersParameter != null) {
             List<String> layersNames = KvpUtils.readFlat(rawLayersParameter);
-            return new LayersParser()
+            return LayersParser.getInstance()
                     .parseLayers(layersNames, getMap.getRemoteOwsURL(), getMap.getRemoteOwsType());
         }
         return new ArrayList<>();
@@ -854,7 +841,14 @@ public class GeofenceAccessManager
     /** An helper that avoids duplicating the code to parse the layers parameter */
     static final class LayersParser extends GetMapKvpRequestReader {
 
-        public LayersParser() {
+        private static LayersParser singleton = null;
+
+        public static LayersParser getInstance() {
+            if (singleton == null) singleton = new LayersParser();
+            return singleton;
+        }
+
+        private LayersParser() {
             super(WMS.get());
         }
 
