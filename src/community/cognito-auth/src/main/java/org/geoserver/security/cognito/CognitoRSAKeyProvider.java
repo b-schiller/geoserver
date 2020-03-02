@@ -4,6 +4,7 @@ import com.auth0.jwk.Jwk;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwk.JwkProviderBuilder;
 import com.auth0.jwt.interfaces.RSAKeyProvider;
+import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.interfaces.RSAPrivateKey;
@@ -27,6 +28,15 @@ public class CognitoRSAKeyProvider implements RSAKeyProvider {
                             + userPoolId
                             + "/.well-known/jwks.json";
             this.cognitoUrl = new URL(cognitoUrl);
+            provider = new JwkProviderBuilder(this.cognitoUrl).build();
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public CognitoRSAKeyProvider(String jwksFilePath) {
+        try {
+            this.cognitoUrl = new File(jwksFilePath).toURI().toURL();
             provider = new JwkProviderBuilder(this.cognitoUrl).build();
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);

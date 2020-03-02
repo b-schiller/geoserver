@@ -9,6 +9,7 @@ public class CognitoAuthenticationFilterConfig extends SecurityFilterConfig
     private String awsRegion;
     private String userPoolID;
     private String clientID;
+    private String jwksFilePath;
 
     private static final long serialVersionUID = 1L;
 
@@ -34,5 +35,13 @@ public class CognitoAuthenticationFilterConfig extends SecurityFilterConfig
 
     public void setClientID(String clientID) {
         this.clientID = clientID;
+    }
+
+    public String getJwksFilePath() {
+        return jwksFilePath;
+    }
+
+    public void setJwksFilePath(String jwksFilePath) {
+        this.jwksFilePath = jwksFilePath;
     }
 }

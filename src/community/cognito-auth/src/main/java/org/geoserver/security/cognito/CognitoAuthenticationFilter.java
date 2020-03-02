@@ -31,8 +31,14 @@ public class CognitoAuthenticationFilter extends GeoServerPreAuthenticationFilte
 
         CognitoAuthenticationFilterConfig authConfig = (CognitoAuthenticationFilterConfig) config;
 
-        CognitoRSAKeyProvider keyProvider =
-                new CognitoRSAKeyProvider(authConfig.getAwsRegion(), authConfig.getUserPoolID());
+        CognitoRSAKeyProvider keyProvider;
+        if (authConfig.getJwksFilePath() != null && !authConfig.getJwksFilePath().isEmpty()) {
+            keyProvider = new CognitoRSAKeyProvider(authConfig.getJwksFilePath());
+        } else {
+            keyProvider =
+                    new CognitoRSAKeyProvider(
+                            authConfig.getAwsRegion(), authConfig.getUserPoolID());
+        }
 
         this.clientID = authConfig.getClientID();
         Algorithm algorithm = Algorithm.RSA256(keyProvider);

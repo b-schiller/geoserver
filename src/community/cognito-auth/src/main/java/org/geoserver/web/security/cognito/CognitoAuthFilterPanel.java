@@ -21,6 +21,7 @@ public class CognitoAuthFilterPanel
         add(new TextField<String>("awsRegion"));
         add(new TextField<String>("userPoolID"));
         add(new TextField<String>("clientID"));
+        add(new TextField<String>("jwksFilePath"));
     }
 
     @Override
